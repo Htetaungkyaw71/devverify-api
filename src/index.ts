@@ -15,6 +15,7 @@ let app = express();
 const PORT = process.env.PORT || 5001;
 const MONGODB_URI =
   process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/devVerify";
+const IS_VERCEL = process.env.VERCEL === "1";
 
 app.set("trust proxy", 1);
 
@@ -45,16 +46,26 @@ app.use("/api/positions", posRouter);
 app.use("/api/submissions", submissionRouter);
 
 const connectDb = async () => {
+  if (mongoose.connection.readyState === 1) return;
   await mongoose.connect(MONGODB_URI);
   console.log("Connected to MongoDB");
 };
 
-initializeRedis().catch(() => undefined);
+const bootstrap = async () => {
+  await initializeRedis().catch(() => undefined);
+  await connectDb();
+};
 
-connectDb()
-  .then((connection) => {
-    app.listen(PORT, () => {
-      console.log(`server is runnung at ${PORT}`);
-    });
-  })
-  .catch((e) => console.error(e));
+if (IS_VERCEL) {
+  bootstrap().catch((e) => console.error(e));
+} else {
+  bootstrap()
+    .then(() => {
+      app.listen(PORT, () => {
+        console.log(`server is runnung at ${PORT}`);
+      });
+    })
+    .catch((e) => console.error(e));
+}
+
+export default app;
