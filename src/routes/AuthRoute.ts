@@ -17,42 +17,24 @@ import {
   resetPasswordSchema,
 } from "../validations/AuthValidation.js";
 import passport from "../config/passport.js";
-import {
-  authLimiter,
-  loginLimiter,
-  sendOtpLimiter,
-  verifyOtpLimiter,
-  forgotPasswordLimiter,
-  resetPasswordLimiter,
-} from "../middlewares/RateLimitMiddleware.js";
 
 const authrouter = Router();
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
 
-authrouter.use(authLimiter);
-
 authrouter.post(
   "/register/send-otp",
-  sendOtpLimiter,
   validate(sendRegisterOtpSchema),
   sendRegisterOtp,
 );
-authrouter.post(
-  "/register",
-  verifyOtpLimiter,
-  validate(registerSchema),
-  register,
-);
-authrouter.post("/login", loginLimiter, validate(loginSchema), login);
+authrouter.post("/register", validate(registerSchema), register);
+authrouter.post("/login", validate(loginSchema), login);
 authrouter.post(
   "/forgot-password",
-  forgotPasswordLimiter,
   validate(forgotPasswordSchema),
   forgotPassword,
 );
 authrouter.post(
   "/reset-password",
-  resetPasswordLimiter,
   validate(resetPasswordSchema),
   resetPassword,
 );

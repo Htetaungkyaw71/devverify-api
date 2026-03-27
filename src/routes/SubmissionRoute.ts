@@ -10,24 +10,13 @@ import {
   submissionIdParamSchema,
   submitCodeSchema,
 } from "../validations/SubmissionValidation.js";
-import {
-  protectedReadLimiter,
-  submissionWriteLimiter,
-} from "../middlewares/RateLimitMiddleware.js";
 
 const submissionRouter = Router();
 
-submissionRouter.post(
-  "/",
-  submissionWriteLimiter,
-  protect,
-  validate(submitCodeSchema),
-  submitCode,
-);
+submissionRouter.post("/", protect, validate(submitCodeSchema), submitCode);
 
 submissionRouter.get(
   "/position/:positionId",
-  protectedReadLimiter,
   protect,
   validateParams(positionIdParamSchema),
   getPositionSubmissions,
