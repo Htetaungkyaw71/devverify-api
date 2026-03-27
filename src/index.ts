@@ -17,7 +17,6 @@ let app = express();
 const PORT = process.env.PORT || 5001;
 const MONGODB_URI =
   process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/devVerify";
-
 let dbConnectPromise: Promise<typeof mongoose> | null = null;
 
 app.set("trust proxy", 1);
@@ -27,11 +26,54 @@ app.use(urlencoded({ extended: true }));
 
 app.use(passport.initialize());
 
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
+const FRONTEND_URL = process.env.FRONTEND_URL;
+const FRONTEND_URLS = process.env.FRONTEND_URLS || "";
+
+const allowedOrigins = new Set(
+  [
+    FRONTEND_URL,
+    ...FRONTEND_URLS.split(","),
+    "https://dev-verify-eight.vercel.app",
+    "https://devverify.online",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+  ]
+    .map((origin) => origin?.trim())
+    .filter((origin): origin is string => Boolean(origin)),
+);
+
+const shouldAllowVercelPreview =
+  process.env.ALLOW_VERCEL_PREVIEW_ORIGINS === "true";
 
 app.use(
   cors({
-    origin: [FRONTEND_URL],
+    origin: (origin, callback) => {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      if (allowedOrigins.has(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      if (shouldAllowVercelPreview) {
+        try {
+          const hostname = new URL(origin).hostname;
+          if (hostname.endsWith(".vercel.app")) {
+            callback(null, true);
+            return;
+          }
+        } catch {
+          callback(new Error("Not allowed by CORS"));
+          return;
+        }
+      }
+
+      callback(new Error("Not allowed by CORS"));
+    },
+    credentials: true,
   }),
 );
 
@@ -40,6 +82,13 @@ app.get("/", (req, res) => {
     mesage: "Hello world",
   });
 });
+
+app.use("/api", apiGlobalLimiter);
+app.use("/api", authRouter);
+app.use("/api/challenges", challengeRouter);
+app.use("/api/tags", tagRouter);
+app.use("/api/positions", posRouter);
+app.use("/api/submissions", submissionRouter);
 
 const connectDb = async () => {
   if (mongoose.connection.readyState === 1) return mongoose;
@@ -59,27 +108,6 @@ const connectDb = async () => {
 
   return dbConnectPromise;
 };
-
-app.use("/api", async (req, res, next) => {
-  try {
-    await connectDb();
-    next();
-  } catch (error) {
-    console.error("MongoDB connection failed", error);
-    res.status(500).json({
-      success: false,
-      message: "Database connection failed",
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
-  }
-});
-
-app.use("/api", apiGlobalLimiter);
-app.use("/api", authRouter);
-app.use("/api/challenges", challengeRouter);
-app.use("/api/tags", tagRouter);
-app.use("/api/positions", posRouter);
-app.use("/api/submissions", submissionRouter);
 
 initializeRedis().catch(() => undefined);
 
