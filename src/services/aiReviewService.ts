@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { default as OpenAI } from "openai";
 
 export interface CodeReviewInput {
   challengeTitle: string;

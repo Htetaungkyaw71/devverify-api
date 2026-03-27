@@ -9,6 +9,7 @@ import tagRouter from "./routes/TagRoute.js";
 import posRouter from "./routes/PositionRoute.js";
 import submissionRouter from "./routes/SubmissionRoute.js";
 import { initializeRedis } from "./config/redis.js";
+import { apiGlobalLimiter } from "./middlewares/RateLimitMiddleware.js";
 
 const IS_VERCEL = process.env.VERCEL === "1";
 
@@ -38,6 +39,7 @@ app.get("/", (req, res) => {
   });
 });
 
+app.use("/api", apiGlobalLimiter);
 app.use("/api", authRouter);
 app.use("/api/challenges", challengeRouter);
 app.use("/api/tags", tagRouter);
