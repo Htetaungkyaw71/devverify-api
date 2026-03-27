@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express, { json, urlencoded } from "express";
 import mongoose from "mongoose";
 import authRouter from "./routes/AuthRoute.js";
@@ -9,6 +10,8 @@ import posRouter from "./routes/PositionRoute.js";
 import submissionRouter from "./routes/SubmissionRoute.js";
 import { initializeRedis } from "./config/redis.js";
 import { apiGlobalLimiter } from "./middlewares/RateLimitMiddleware.js";
+
+const IS_VERCEL = process.env.VERCEL === "1";
 
 let app = express();
 const PORT = process.env.PORT || 5001;
@@ -52,8 +55,14 @@ initializeRedis().catch(() => undefined);
 
 connectDb()
   .then((connection) => {
-    app.listen(PORT, () => {
-      console.log(`server is runnung at ${PORT}`);
-    });
+    if (!IS_VERCEL) {
+      app.listen(PORT, () => {
+        console.log(`server is running at ${PORT}`);
+      });
+    } else {
+      console.log("Running on Vercel (serverless)");
+    }
   })
   .catch((e) => console.error(e));
+
+export default app;
