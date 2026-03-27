@@ -16,7 +16,6 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
-    "@express-rate-limit/tsconfig": "^1.0.2",
     "@google/generative-ai": "^0.24.1",
     "@sindresorhus/slugify": "^3.0.0",
     "@types/cors": "^2.8.19",
