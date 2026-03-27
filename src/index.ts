@@ -35,6 +35,7 @@ const allowedOrigins = new Set(
     ...FRONTEND_URLS.split(","),
     "https://dev-verify-eight.vercel.app",
     "https://devverify.online",
+    "https://www.devverify.online",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
   ]
