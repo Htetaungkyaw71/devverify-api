@@ -18,6 +18,8 @@ const PORT = process.env.PORT || 5001;
 const MONGODB_URI =
   process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/devVerify";
 
+let dbConnectPromise: Promise<typeof mongoose> | null = null;
+
 app.set("trust proxy", 1);
 
 app.use(json());
@@ -39,17 +41,45 @@ app.get("/", (req, res) => {
   });
 });
 
+const connectDb = async () => {
+  if (mongoose.connection.readyState === 1) return mongoose;
+
+  if (!dbConnectPromise) {
+    dbConnectPromise = mongoose
+      .connect(MONGODB_URI)
+      .then((connection) => {
+        console.log("Connected to MongoDB");
+        return connection;
+      })
+      .catch((error) => {
+        dbConnectPromise = null;
+        throw error;
+      });
+  }
+
+  return dbConnectPromise;
+};
+
+app.use("/api", async (req, res, next) => {
+  try {
+    await connectDb();
+    next();
+  } catch (error) {
+    console.error("MongoDB connection failed", error);
+    res.status(500).json({
+      success: false,
+      message: "Database connection failed",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+});
+
 app.use("/api", apiGlobalLimiter);
 app.use("/api", authRouter);
 app.use("/api/challenges", challengeRouter);
 app.use("/api/tags", tagRouter);
 app.use("/api/positions", posRouter);
 app.use("/api/submissions", submissionRouter);
-
-const connectDb = async () => {
-  await mongoose.connect(MONGODB_URI);
-  console.log("Connected to MongoDB");
-};
 
 initializeRedis().catch(() => undefined);
 
