@@ -63,12 +63,32 @@ authrouter.get(
   passport.authenticate("github", { scope: ["user:email"] }),
 );
 
-authrouter.get(
-  "/auth/github/callback",
-  passport.authenticate("github", { session: false }),
-  (req: any, res) => {
-    res.redirect(`${FRONTEND_URL}/oauth-success?token=${req.user.token}`);
-  },
-);
+authrouter.get("/auth/github/callback", (req, res, next) => {
+  passport.authenticate(
+    "github",
+    { session: false },
+    (error: unknown, user: any) => {
+      if (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "OAuth authentication failed";
+        res.redirect(
+          `${FRONTEND_URL}/oauth-error?message=${encodeURIComponent(message)}`,
+        );
+        return;
+      }
+
+      if (!user?.token) {
+        res.redirect(
+          `${FRONTEND_URL}/oauth-error?message=${encodeURIComponent("Missing OAuth token")}`,
+        );
+        return;
+      }
+
+      res.redirect(`${FRONTEND_URL}/oauth-success?token=${user.token}`);
+    },
+  )(req, res, next);
+});
 
 export default authrouter;
