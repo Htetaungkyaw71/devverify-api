@@ -8,6 +8,7 @@ import challengeRouter from "./routes/ChallengeRoute.js";
 import tagRouter from "./routes/TagRoute.js";
 import posRouter from "./routes/PositionRoute.js";
 import submissionRouter from "./routes/SubmissionRoute.js";
+import onlineCompilerRouter from "./routes/OnlineCompilerRoute.js";
 import { initializeRedis } from "./config/redis.js";
 import { apiGlobalLimiter } from "./middlewares/RateLimitMiddleware.js";
 
@@ -90,6 +91,7 @@ app.use("/api/challenges", challengeRouter);
 app.use("/api/tags", tagRouter);
 app.use("/api/positions", posRouter);
 app.use("/api/submissions", submissionRouter);
+app.use("/api/onlinecompiler", onlineCompilerRouter);
 
 const connectDb = async () => {
   if (mongoose.connection.readyState === 1) return mongoose;
