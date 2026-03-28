@@ -39,14 +39,47 @@ passport.use(
         }
 
         if (!user) {
-          user = await User.create({
-            username: profileUsername,
-            email: profileEmail || `${githubId}@users.devverify.local`,
-            githubId,
-            avatar,
-            provider: "github",
-            isVerified: true,
-          });
+          try {
+            user = await User.create({
+              username: profileUsername,
+              email: profileEmail || `${githubId}@users.devverify.local`,
+              githubId,
+              avatar,
+              provider: "github",
+              isVerified: true,
+            });
+          } catch (error: any) {
+            const isDuplicateEmail =
+              error?.code === 11000 &&
+              typeof error?.message === "string" &&
+              error.message.includes("email_1");
+
+            if (!isDuplicateEmail) {
+              throw error;
+            }
+
+            if (profileEmail) {
+              user = await User.findOneAndUpdate(
+                { email: profileEmail },
+                {
+                  $set: {
+                    githubId,
+                    provider: "github",
+                    avatar,
+                    isVerified: true,
+                  },
+                  $setOnInsert: {
+                    username: profileUsername,
+                  },
+                },
+                { new: true },
+              );
+            }
+
+            if (!user) {
+              user = await User.findOne({ githubId });
+            }
+          }
         } else {
           const updates: Record<string, unknown> = {
             githubId,

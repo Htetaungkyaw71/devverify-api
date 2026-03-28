@@ -85,6 +85,35 @@ app.get("/", (req, res) => {
   });
 });
 
+app.use("/api", async (req, res, next) => {
+  try {
+    await connectDb();
+    next();
+  } catch (error) {
+    console.error("[DB_CONNECT_ERROR]", {
+      method: req.method,
+      path: req.originalUrl,
+      readyState: mongoose.connection.readyState,
+      hasMongoUri: Boolean(process.env.MONGODB_URI),
+      isVercel: IS_VERCEL,
+      error:
+        error instanceof Error
+          ? {
+              name: error.name,
+              message: error.message,
+              stack: error.stack,
+            }
+          : error,
+    });
+
+    res.status(500).json({
+      success: false,
+      message: "Database connection failed",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+});
+
 app.use("/api", apiGlobalLimiter);
 app.use("/api", authRouter);
 app.use("/api/challenges", challengeRouter);
@@ -104,6 +133,19 @@ const connectDb = async () => {
         return connection;
       })
       .catch((error) => {
+        console.error("[DB_CONNECT_PROMISE_ERROR]", {
+          readyState: mongoose.connection.readyState,
+          hasMongoUri: Boolean(process.env.MONGODB_URI),
+          isVercel: IS_VERCEL,
+          error:
+            error instanceof Error
+              ? {
+                  name: error.name,
+                  message: error.message,
+                  stack: error.stack,
+                }
+              : error,
+        });
         dbConnectPromise = null;
         throw error;
       });
@@ -124,6 +166,20 @@ connectDb()
       console.log("Running on Vercel (serverless)");
     }
   })
-  .catch((e) => console.error(e));
+  .catch((error) => {
+    console.error("[BOOT_DB_CONNECT_ERROR]", {
+      readyState: mongoose.connection.readyState,
+      hasMongoUri: Boolean(process.env.MONGODB_URI),
+      isVercel: IS_VERCEL,
+      error:
+        error instanceof Error
+          ? {
+              name: error.name,
+              message: error.message,
+              stack: error.stack,
+            }
+          : error,
+    });
+  });
 
 export default app;
