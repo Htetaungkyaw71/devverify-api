@@ -7,6 +7,7 @@ import {
   sendVerificationOTP,
   sendPasswordResetOTP,
 } from "../services/emailService.js";
+import { clearAuthCookie, setAuthCookie } from "../utils/authCookie.js";
 import { generateOTP, getOTPExpiry } from "../utils/otpUtils.js";
 import {
   sendRegisterOtpSchema,
@@ -185,6 +186,8 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       expiresIn: JWT_EXPIRES_IN,
     });
 
+    setAuthCookie(res, token);
+
     res.status(200).json({
       message: "Registration successful",
       token,
@@ -231,6 +234,8 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     const token = jwt.sign({ id: user._id }, JWT_SECRET, {
       expiresIn: JWT_EXPIRES_IN,
     });
+
+    setAuthCookie(res, token);
 
     res.status(200).json({
       message: "Login successful",
@@ -390,4 +395,9 @@ export const getMe = async (req: Request, res: Response): Promise<void> => {
   } catch (error) {
     res.status(500).json({ message: "Server error" });
   }
+};
+
+export const logout = async (_req: Request, res: Response): Promise<void> => {
+  clearAuthCookie(res);
+  res.status(200).json({ message: "Logged out successfully" });
 };

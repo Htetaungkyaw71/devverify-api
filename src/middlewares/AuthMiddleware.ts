@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import { getTokenFromRequest } from "../utils/authCookie.js";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -13,14 +14,13 @@ export const protect = (
   next: NextFunction,
 ): void => {
   try {
-    const authHeader = req.headers.authorization;
+    const token = getTokenFromRequest(req);
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    if (!token) {
       res.status(401).json({ message: "No token provided, unauthorized" });
       return;
     }
 
-    const token = authHeader.split(" ")[1] || "";
     const decoded = jwt.verify(token, JWT_SECRET) as unknown as { id: string };
 
     req.userId = decoded.id;

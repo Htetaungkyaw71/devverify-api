@@ -564,6 +564,11 @@ import { fileURLToPath } from "url";
 
 import Challenge from "./models/Challenge.js";
 import User from "./models/User.js";
+import Position from "./models/Position.js";
+import Submission from "./models/Submission.js";
+import Tag from "./models/Tag.js";
+import OTP from "./models/OTP.js";
+import { deleteCacheByPrefix, initializeRedis } from "./config/redis.js";
 import bcrypt from "bcryptjs";
 
 type SeedItem = Record<string, any>;
@@ -1426,7 +1431,9 @@ console.log(\`Test ${idx + 1}: \${passed${idx + 1} ? "PASS" : "FAIL"} | actual: 
     auto result${idx + 1} = sol.${name}(${callString});
     auto expected${idx + 1} = ${expected};
     bool passed${idx + 1} = (result${idx + 1} == expected${idx + 1});
-    cout << "Test ${idx + 1}: " << (passed${idx + 1} ? "PASS" : "FAIL") << endl;`;
+    cout << "Test ${idx + 1}: " << (passed${idx + 1} ? "PASS" : "FAIL")
+         << " | actual: " << toDebugString(result${idx + 1})
+         << " | expected: " << toDebugString(expected${idx + 1}) << endl;`;
 
           case "go":
             if (hasNullValues) {
@@ -1559,6 +1566,36 @@ import java.lang.reflect.Array;
 #include <optional>
 using namespace std;
 
+  template <typename T>
+  string toDebugString(const T& value) {
+    if constexpr (is_same_v<T, string>) {
+      return value;
+    } else if constexpr (is_same_v<T, const char*>) {
+      return string(value);
+    } else if constexpr (is_same_v<T, bool>) {
+      return value ? "true" : "false";
+    } else {
+      return to_string(value);
+    }
+  }
+
+  template <typename T>
+  string toDebugString(const optional<T>& value) {
+    if (!value.has_value()) return "null";
+    return toDebugString(*value);
+  }
+
+  template <typename T>
+  string toDebugString(const vector<T>& value) {
+    string out = "[";
+    for (size_t i = 0; i < value.size(); ++i) {
+      if (i > 0) out += ", ";
+      out += toDebugString(value[i]);
+    }
+    out += "]";
+    return out;
+  }
+
 class Solution {
 public:
   ${cppReturnType} ${name}(${cppParams}) {
@@ -1662,15 +1699,40 @@ const seedDatabase = async () => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    let user = await User.create({
+    await Promise.all([
+      Submission.deleteMany({}),
+      Position.deleteMany({}),
+      Challenge.deleteMany({}),
+      Tag.deleteMany({}),
+      OTP.deleteMany({}),
+      User.deleteMany({}),
+    ]);
+    console.log(
+      "✅ Cleared users, positions, submissions, challenges, tags, and OTPs",
+    );
+
+    await initializeRedis();
+    await Promise.all([
+      deleteCacheByPrefix("challenges:list:"),
+      deleteCacheByPrefix("challenge:detail:"),
+      deleteCacheByPrefix("tags:"),
+      deleteCacheByPrefix("positions:"),
+      deleteCacheByPrefix("position:"),
+      deleteCacheByPrefix("submissions:"),
+      deleteCacheByPrefix("submission:"),
+      deleteCacheByPrefix("users:"),
+      deleteCacheByPrefix("user:"),
+      deleteCacheByPrefix("auth:"),
+      deleteCacheByPrefix("otp:"),
+    ]);
+    console.log("✅ Cleared Redis cache for seed-related prefixes");
+
+    const user = await User.create({
       username: "htet",
       email: "htetaung200071@gmail.com",
       password: hashedPassword,
       isVerified: true,
     });
-
-    await Challenge.deleteMany({});
-    console.log("✅ Database cleared");
 
     const rawData = fs.readFileSync(SEED_DATA_PATH, "utf-8");
     const challenges = JSON.parse(rawData);

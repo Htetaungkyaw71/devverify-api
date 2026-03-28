@@ -6,6 +6,7 @@ import {
   register,
   forgotPassword,
   resetPassword,
+  logout,
 } from "../controllers/AuthController.js";
 import { protect } from "../middlewares/AuthMiddleware.js";
 import { validate } from "../validations/validate.js";
@@ -25,6 +26,7 @@ import {
   forgotPasswordLimiter,
   resetPasswordLimiter,
 } from "../middlewares/RateLimitMiddleware.js";
+import { setAuthCookie } from "../utils/authCookie.js";
 
 const authrouter = Router();
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
@@ -56,6 +58,7 @@ authrouter.post(
   validate(resetPasswordSchema),
   resetPassword,
 );
+authrouter.post("/logout", logout);
 authrouter.get("/me", protect, getMe);
 
 authrouter.get(
@@ -86,7 +89,8 @@ authrouter.get("/auth/github/callback", (req, res, next) => {
         return;
       }
 
-      res.redirect(`${FRONTEND_URL}/oauth-success?token=${user.token}`);
+      setAuthCookie(res, user.token);
+      res.redirect(`${FRONTEND_URL}/oauth-success`);
     },
   )(req, res, next);
 });
