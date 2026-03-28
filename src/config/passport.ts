@@ -4,13 +4,16 @@ import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 
 const JWT_SECRET = "devVerify--Secret";
+const API_BASE_URL = process.env.API_BASE_URL || "http://localhost:5001";
+const GITHUB_CALLBACK_URL =
+  process.env.GITHUB_CALLBACK_URL || `${API_BASE_URL}/api/auth/github/callback`;
 
 passport.use(
   new GitHubStrategy(
     {
       clientID: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      callbackURL: "/api/auth/github/callback",
+      callbackURL: GITHUB_CALLBACK_URL,
     },
     async (_accessToken: any, _refreshToken: any, profile: any, done: any) => {
       try {
