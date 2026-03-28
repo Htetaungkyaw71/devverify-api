@@ -78,7 +78,6 @@ export const submitCode = async (req: Request, res: Response) => {
       submission.status = "completed";
       submission.aiModel = review.model;
       submission.marks = review.marks;
-      console.log(submission);
       submission.scoreBreakdown = {
         logic: review.scores.logic,
         security: review.scores.security,

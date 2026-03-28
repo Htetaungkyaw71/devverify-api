@@ -53,7 +53,7 @@ export const createPosition = async (req: Request, res: Response) => {
     res.status(201).json({
       message: "Position created",
       position: newPosition,
-      inviteLink: `${FRONTEND_URL}/invite/${newPosition.inviteToken}`,
+      inviteLink: `${FRONTEND_URL}invite/${newPosition.inviteToken}`,
     });
   } catch (error) {
     res.status(500).json({ message: "Server error", error });
