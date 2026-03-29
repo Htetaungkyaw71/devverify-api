@@ -72,7 +72,10 @@ const SubmissionSchema = new Schema<ISubmission>(
 );
 
 SubmissionSchema.index({ userId: 1, createdAt: -1 });
-SubmissionSchema.index({ positionId: 1, challengeId: 1, userId: 1 });
+SubmissionSchema.index(
+  { positionId: 1, challengeId: 1, userId: 1 },
+  { unique: true },
+);
 SubmissionSchema.index({ positionId: 1, createdAt: -1 });
 
 export default mongoose.model<ISubmission>("Submission", SubmissionSchema);

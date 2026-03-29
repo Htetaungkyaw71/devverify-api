@@ -59,6 +59,82 @@ const pickScore = (root: Record<string, unknown>, keys: string[]): number => {
   return 0;
 };
 
+const averageScore = (scores: {
+  logic: number;
+  security: number;
+  readability: number;
+  performance: number;
+  cleanliness: number;
+}): number => {
+  return Math.round(
+    (scores.logic +
+      scores.security +
+      scores.readability +
+      scores.performance +
+      scores.cleanliness) /
+      5,
+  );
+};
+
+const isLikelyPlaceholderSubmission = (code: string): boolean => {
+  const normalized = code.trim();
+  if (!normalized) return true;
+
+  const hasPlaceholderComment =
+    /todo/i.test(normalized) ||
+    /write\s+your\s+solution\s+here/i.test(normalized) ||
+    /implement\s+solution/i.test(normalized);
+
+  const hasTrivialReturn =
+    /return\s+(0|null|undefined|false|true|""|''|\[\]|\{\})\s*;?/i.test(
+      normalized,
+    ) || /pass\s*(#.*)?$/im.test(normalized);
+
+  const hasControlFlow =
+    /\b(if|for|while|switch|case|try|catch|map|filter|reduce|sort|dfs|bfs|recursion)\b/i.test(
+      normalized,
+    );
+
+  const lineCount = normalized.split(/\r?\n/).filter(Boolean).length;
+
+  return (
+    (hasPlaceholderComment && hasTrivialReturn) ||
+    (hasPlaceholderComment && lineCount <= 15) ||
+    (hasTrivialReturn && !hasControlFlow && lineCount <= 8)
+  );
+};
+
+const enforcePlaceholderPenalty = (
+  parsed: Omit<CodeReviewResult, "model">,
+): Omit<CodeReviewResult, "model"> => {
+  const penalizedScores = {
+    logic: Math.min(parsed.scores.logic, 10),
+    security: Math.min(parsed.scores.security, 30),
+    readability: Math.min(parsed.scores.readability, 35),
+    performance: Math.min(parsed.scores.performance, 20),
+    cleanliness: Math.min(parsed.scores.cleanliness, 35),
+  };
+
+  const penalizedMarks = Math.min(20, averageScore(penalizedScores));
+
+  return {
+    ...parsed,
+    marks: penalizedMarks,
+    scores: penalizedScores,
+    report:
+      "Submission appears to be a placeholder/incomplete solution (TODO/skeleton/trivial return). It is not a valid implementation for this challenge.",
+    strengths: [],
+    weaknesses: [
+      "Code is incomplete and appears to be a placeholder implementation.",
+      "Core algorithm and edge-case handling are missing.",
+    ],
+    suggestions: [
+      "Implement the full algorithm for the challenge instead of placeholder return values.",
+      "Add proper logic and handle edge cases before resubmitting.",
+    ],
+  };
+};
+
 const parseReview = (rawText: string): Omit<CodeReviewResult, "model"> => {
   const parsed = JSON.parse(stripMarkdownFence(rawText)) as Record<
     string,
@@ -115,6 +191,12 @@ Scoring criteria:
 - Readability and structure
 - Edge case handling
 - Time and space complexity awareness
+
+Critical rules:
+- Do not hallucinate missing implementation details.
+- Grade ONLY what exists in the submitted code.
+- If the submission is placeholder/skeleton/incomplete (e.g. TODO comments, trivial constant return, no real algorithm), marks must be <= 20 and Logic must be <= 10.
+- In that case, strengths should be empty or minimal and must not praise non-existent algorithms.
 
 Challenge Title: ${input.challengeTitle}
 Challenge Description: ${input.challengeDescription}
@@ -173,8 +255,13 @@ export const reviewCodeWithAI = async (
       }
 
       const parsed = parseReview(text);
+      const normalizedReview = isLikelyPlaceholderSubmission(
+        input.submittedCode,
+      )
+        ? enforcePlaceholderPenalty(parsed)
+        : parsed;
       return {
-        ...parsed,
+        ...normalizedReview,
         model: DEFAULT_MODEL,
         tokenUsage: response.usage?.total_tokens,
       };
@@ -213,8 +300,11 @@ export const reviewCodeWithAI = async (
   }
 
   const parsed = parseReview(text);
+  const normalizedReview = isLikelyPlaceholderSubmission(input.submittedCode)
+    ? enforcePlaceholderPenalty(parsed)
+    : parsed;
   return {
-    ...parsed,
+    ...normalizedReview,
     model: DEFAULT_GROQ_MODEL,
     tokenUsage: response.usage?.total_tokens,
   };

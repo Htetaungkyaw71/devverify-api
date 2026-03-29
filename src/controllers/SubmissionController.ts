@@ -5,6 +5,22 @@ import Position from "../models/Position.js";
 import Submission from "../models/Submission.js";
 import { reviewCodeWithAI } from "../services/aiReviewService.js";
 
+const isDuplicateSubmissionError = (error: unknown): boolean => {
+  if (!error || typeof error !== "object") return false;
+
+  const maybeMongoError = error as {
+    code?: number;
+    keyPattern?: Record<string, unknown>;
+  };
+
+  return (
+    maybeMongoError.code === 11000 &&
+    Boolean(maybeMongoError.keyPattern?.userId) &&
+    Boolean(maybeMongoError.keyPattern?.positionId) &&
+    Boolean(maybeMongoError.keyPattern?.challengeId)
+  );
+};
+
 const isChallengeInPosition = (
   positionChallenges: Array<{ challengeId?: mongoose.Types.ObjectId | null }>,
   challengeId: string,
@@ -54,6 +70,23 @@ export const submitCode = async (req: Request, res: Response) => {
       res
         .status(400)
         .json({ message: "Challenge is not assigned to this position" });
+      return;
+    }
+
+    const existingSubmission = await Submission.findOne({
+      userId: req.userId,
+      positionId,
+      challengeId,
+    })
+      .select("_id")
+      .lean()
+      .exec();
+
+    if (existingSubmission) {
+      res.status(409).json({
+        message:
+          "You have already submitted this challenge for this position. Multiple submissions are not allowed.",
+      });
       return;
     }
 
@@ -113,6 +146,14 @@ export const submitCode = async (req: Request, res: Response) => {
       submission: hydrated,
     });
   } catch (error) {
+    if (isDuplicateSubmissionError(error)) {
+      res.status(409).json({
+        message:
+          "You have already submitted this challenge for this position. Multiple submissions are not allowed.",
+      });
+      return;
+    }
+
     res.status(500).json({ message: "Server error", error });
   }
 };

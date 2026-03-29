@@ -16,7 +16,7 @@ const mapChallenges = (challenges: ChallengeInput[]) =>
 
 const MAX_POSITIONS_PER_RECRUITER = 20;
 const POSITION_INVITE_CACHE_TTL = 60 * 10;
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000/";
 
 export const createPosition = async (req: Request, res: Response) => {
   try {
