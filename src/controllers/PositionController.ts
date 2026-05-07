@@ -48,7 +48,7 @@ export const createPosition = async (req: Request, res: Response) => {
       inviteToken: nanoid(10),
     });
 
-    await deleteCacheByPrefix("position:invite:");
+    // await deleteCacheByPrefix("position:invite:");
 
     res.status(201).json({
       message: "Position created",
@@ -133,7 +133,7 @@ export const updateMyPosition = async (req: Request, res: Response) => {
       return;
     }
 
-    await deleteCacheByPrefix("position:invite:");
+    // await deleteCacheByPrefix("position:invite:");
 
     res.status(200).json({ message: "Position updated", position });
   } catch (error) {
@@ -158,7 +158,7 @@ export const deleteMyPosition = async (req: Request, res: Response) => {
       return;
     }
 
-    await deleteCacheByPrefix("position:invite:");
+    // await deleteCacheByPrefix("position:invite:");
 
     res.status(200).json({ message: "Position deleted" });
   } catch (error) {

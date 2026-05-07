@@ -1,10 +1,6 @@
 import type { Request, Response } from "express";
 import Challenge from "../models/Challenge.js";
 import mongoose from "mongoose";
-import { getOrSetCache } from "../config/redis.js";
-
-const CHALLENGE_LIST_CACHE_TTL = 60 * 10;
-const CHALLENGE_DETAIL_CACHE_TTL = 60 * 30;
 
 const asSingleString = (value: unknown): string | undefined => {
   if (typeof value === "string") return value;
@@ -13,18 +9,6 @@ const asSingleString = (value: unknown): string | undefined => {
     return typeof first === "string" ? first : undefined;
   }
   return undefined;
-};
-
-const buildQueryCacheFragment = (query: Request["query"]): string => {
-  const entries = Object.entries(query).sort(([a], [b]) => a.localeCompare(b));
-  return entries
-    .map(([key, value]) => {
-      if (Array.isArray(value)) {
-        return `${key}=${value.join(",")}`;
-      }
-      return `${key}=${value ?? ""}`;
-    })
-    .join("&");
 };
 
 export const getAllChallenges = async (req: Request, res: Response) => {
@@ -68,33 +52,41 @@ export const getAllChallenges = async (req: Request, res: Response) => {
     // 3. Execute query with Pagination
     const skip = (page - 1) * limit;
 
-    const queryKeyPart = buildQueryCacheFragment(req.query);
-    const cacheKey = `challenges:list:${queryKeyPart}`;
-
-    const payload = await getOrSetCache(
-      cacheKey,
-      CHALLENGE_LIST_CACHE_TTL,
-      async () => {
-        const challenges = await Challenge.find(query)
-          .select("title slug difficulty category tags")
-          .sort({ createdAt: -1 })
-          .skip(skip)
-          .limit(limit)
-          .lean()
-          .exec();
-
-        const total = await Challenge.countDocuments(query);
-
-        return {
-          success: true,
-          count: challenges.length,
-          total,
-          totalPages: Math.ceil(total / limit),
-          currentPage: page,
-          data: challenges,
-        };
+    // Use aggregation pipeline with $facet for a single DB round trip
+    const result = await Challenge.aggregate([
+      { $match: query },
+      {
+        $facet: {
+          metadata: [{ $count: "total" }],
+          data: [
+            { $sort: { createdAt: -1 } },
+            { $skip: skip },
+            { $limit: limit },
+            {
+              $project: {
+                title: 1,
+                slug: 1,
+                difficulty: 1,
+                category: 1,
+                tags: 1,
+              },
+            },
+          ],
+        },
       },
-    );
+    ]).exec();
+
+    const total = result[0].metadata[0]?.total || 0;
+    const challenges = result[0].data;
+
+    const payload = {
+      success: true,
+      count: challenges.length,
+      total,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+      data: challenges,
+    };
 
     res.status(200).json(payload);
   } catch (error) {
@@ -125,12 +117,7 @@ export const getChallengeById = async (req: Request, res: Response) => {
       return;
     }
 
-    const cacheKey = `challenge:detail:${id}`;
-    const challenge = await getOrSetCache(
-      cacheKey,
-      CHALLENGE_DETAIL_CACHE_TTL,
-      async () => Challenge.findById(id),
-    );
+    const challenge = await Challenge.findById(id);
 
     // 3. Handle "Not Found"
     if (!challenge) {
